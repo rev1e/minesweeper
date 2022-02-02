@@ -20,9 +20,9 @@ mod display;
 mod game;
 
 
-pub const WIDTH: usize = 9;
-pub const HEIGHT: usize = 9;
-pub const MINES: usize = 10;
+pub const WIDTH: usize = 22;
+pub const HEIGHT: usize = 22;
+pub const MINES: usize = 50;
 
 
 fn main() {

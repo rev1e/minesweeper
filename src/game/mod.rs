@@ -20,7 +20,7 @@ use regex::Regex;
 
 use crate::{display::{Display, LETTERS}, HEIGHT, WIDTH, game::cell::RevealResult, MINES};
 
-use self::cell::Cells;
+use self::cell::{Cells, CellType};
 
 pub mod cell;
 
@@ -104,6 +104,28 @@ impl Game {
                         self.mines_left += 1;
                     }
                 },
+                "r" => {
+                    let mut to_reveal = Vec::new();
+                    for x in 0..WIDTH {
+                        for y in 0..HEIGHT {
+                            let cell = self.map.idx(x, y);
+
+                            if cell.hidden {
+                                continue;
+                            }
+
+                            if let CellType::Number(_) = cell.ctype {
+                                to_reveal.push((x, y));
+                            }
+                        }
+                    }
+
+                    for (x, y) in to_reveal {
+                        if self.guess_cell(x, y) {
+                            break;
+                        }
+                    }
+                },
                 _ => {
                     let (x, y) = match get_pos_from_str(&input) {
                         Ok(pos) => pos,
@@ -113,28 +135,33 @@ impl Game {
                         }
                     };
 
-                    self.guess_cell(x, y, &input);
+                    if self.map.idx(x, y).flag {
+                        self.event = Some(EventType::Error(format!("there is a flag on {}", &input)));
+                        return;
+                    }
+
+                    self.guess_cell(x, y);
                 }
             }
         }
     }
 
-    fn guess_cell(&mut self, x: usize, y: usize, pos_str: &str) {
-        if self.map.idx(x, y).flag {
-            self.event = Some(EventType::Error(format!("there is a flag on {}", pos_str)));
-            return;
-        }
+    fn guess_cell(&mut self, x: usize, y: usize) -> bool {
         match self.map.reveal(x, y) {
             RevealResult::Normal => {},
             RevealResult::Mine => {
                 self.map.reveal_all();
                 self.event = Some(EventType::GameOver);
+                return true;
             },
             RevealResult::Win => {
                 self.map.reveal_all();
                 self.event = Some(EventType::Win);
+                return true;
             }
         }
+
+        false
     }
 }
 

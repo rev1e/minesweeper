@@ -122,7 +122,7 @@ impl Cells {
         let cell = self.idx(x, y);
 
         if !cell.hidden {
-            return RevealResult::Normal;
+            return self.reveal_visible(x, y);
         }
 
         if cell.ctype == CellType::Mine {
@@ -186,6 +186,98 @@ impl Cells {
         if x > 0 && y < HEIGHT - 1 {
             self.reveal_r(x-1, y+1);
         }
+    }
+
+    fn reveal_visible(&mut self, x: usize, y: usize) -> RevealResult {
+        assert!(x < WIDTH);
+        assert!(y < HEIGHT);
+
+        if !self.reveal_visible_r(x, y) {
+            return RevealResult::Mine;
+        }
+        
+        if self.check_win() {
+            RevealResult::Win
+        } else {
+            RevealResult::Normal
+        }
+    }
+
+    fn reveal_visible_r(&mut self, x: usize, y: usize) -> bool {
+        assert!(x < WIDTH);
+        assert!(y < HEIGHT);
+
+
+        let cell = self.idx_mut(x, y);
+
+        if cell.flag {
+            return true;
+        }
+
+        if cell.ctype == CellType::Mine {
+            return false;
+        }
+
+        cell.hidden = false;
+
+        if let CellType::Number(num) = cell.ctype {
+            let mut flag_count = 0;
+            if x > 0 && self.idx(x-1, y).flag {
+                flag_count += 1;
+            }
+            if x < WIDTH - 1 && self.idx(x+1, y).flag {
+                flag_count += 1;
+            }
+            if y > 0 && self.idx(x, y-1).flag {
+                flag_count += 1;
+            }
+            if y < HEIGHT - 1 && self.idx(x, y+1).flag {
+                flag_count += 1;
+            }
+            if x > 0 && y > 0 && self.idx(x-1, y-1).flag {
+                flag_count += 1;
+            }
+            if x < WIDTH - 1 && y > 0 && self.idx(x+1, y-1).flag {
+                flag_count += 1;
+            }
+            if x < WIDTH - 1 && y < HEIGHT - 1 && self.idx(x+1, y+1).flag {
+                flag_count += 1;
+            }
+            if x > 0 && y < HEIGHT - 1 && self.idx(x-1, y+1).flag {
+                flag_count += 1;
+            }
+
+            if flag_count != num {
+                return true;
+            }
+        }
+        
+        if x > 0 && self.idx(x-1, y).hidden {
+            if !self.reveal_visible_r(x-1, y) { return false; };
+        }
+        if x < WIDTH - 1 && self.idx(x+1, y).hidden {
+            if !self.reveal_visible_r(x+1, y) { return false; };
+        }
+        if y > 0 && self.idx(x, y-1).hidden {
+            if !self.reveal_visible_r(x, y-1) { return false; };
+        }
+        if y < HEIGHT - 1 && self.idx(x, y+1).hidden {
+            if !self.reveal_visible_r(x, y+1) { return false; };
+        }
+        if x > 0 && y > 0 && self.idx(x-1, y-1).hidden {
+            if !self.reveal_visible_r(x-1, y-1) { return false; };
+        }
+        if x < WIDTH - 1 && y > 0 && self.idx(x+1, y-1).hidden {
+            if !self.reveal_visible_r(x+1, y-1) { return false; };
+        }
+        if x < WIDTH - 1 && y < HEIGHT - 1 && self.idx(x+1, y+1).hidden {
+            if !self.reveal_visible_r(x+1, y+1) { return false; };
+        }
+        if x > 0 && y < HEIGHT - 1 && self.idx(x-1, y+1).hidden {
+            if !self.reveal_visible_r(x-1, y+1) { return false; };
+        }
+
+        true
     }
 
     fn check_win(&self) -> bool {
