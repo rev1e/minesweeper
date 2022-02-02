@@ -96,6 +96,10 @@ impl Game {
                         }
                     };
 
+                    if !self.map.idx(x, y).hidden {
+                        continue;
+                    }
+
                     self.map.flag_cell(x, y);
 
                     if self.map.idx(x, y).flag {
