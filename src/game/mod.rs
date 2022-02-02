@@ -34,16 +34,17 @@ pub struct Game {
     map: Cells,
     display: Display,
     event: Option<EventType>,
-    mines_left: usize,
+    mines_left: i32,
 }
 
 impl Game {
     pub fn new() -> Self {
+        assert!(MINES <= i32::MAX as u32);
         Self {
             display: Display::new(),
             map: Cells::new(MINES),
             event: None,
-            mines_left: MINES,
+            mines_left: MINES as i32,
         }
     }
 
@@ -141,7 +142,7 @@ impl Game {
 
                     if self.map.idx(x, y).flag {
                         self.event = Some(EventType::Error(format!("there is a flag on {}", &input)));
-                        return;
+                        continue;
                     }
 
                     self.guess_cell(x, y);

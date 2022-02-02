@@ -32,7 +32,7 @@ impl Display {
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
     }
 
-    pub fn get_input(&self, mines_left: usize) -> String {
+    pub fn get_input(&self, mines_left: i32) -> String {
         // print prompt
         print!("({} mines left) -> ", mines_left);
         io::stdout().lock().flush().unwrap();
@@ -47,20 +47,20 @@ impl Display {
     }
 
     pub fn render_board(&self, map: &Cells) {
-        print!("  ");
+        print!("     ");
         for x in 0..(WIDTH - 1) {
             print!("{} ", LETTERS.chars().nth(x).unwrap());
         }
         println!("{}", LETTERS.chars().nth(WIDTH - 1).unwrap());
 
-        print!("  ");
+        print!("     ");
         for _ in 0..(WIDTH * 2) {
             print!("-");
         }
         print!("\n");
 
         for y in 0..HEIGHT {
-            print!("| ");
+            print!("{:02} | ", y);
             for x in 0..WIDTH {
                 let cell = map.idx(x, y);
                 
@@ -88,13 +88,19 @@ impl Display {
                     }
                 }
             }   
-            println!("| {}", y);
+            println!("| {:02}", y);
         }
 
-        print!("  ");
+        print!("     ");
         for _ in 0..(WIDTH * 2) {
             print!("-");
         }
         print!("\n");
+
+        print!("     ");
+        for x in 0..(WIDTH - 1) {
+            print!("{} ", LETTERS.chars().nth(x).unwrap());
+        }
+        println!("{}", LETTERS.chars().nth(WIDTH - 1).unwrap());
     }
 }

@@ -49,7 +49,7 @@ pub struct Cells {
 }
 
 impl Cells {
-    pub fn new(mine_num: usize) -> Self {
+    pub fn new(mine_num: u32) -> Self {
         let mut cells = Self {
             data: [Cell::new(); WIDTH * HEIGHT],
         };
@@ -59,13 +59,13 @@ impl Cells {
         cells
     }
 
-    fn generate_mines(&mut self, mine_num: usize) {
-        assert!(mine_num <= WIDTH * HEIGHT);
+    fn generate_mines(&mut self, mine_num: u32) {
+        assert!(mine_num as usize <= WIDTH * HEIGHT);
 
         let mut mine_fields: Vec<usize> = (0..(WIDTH * HEIGHT)).collect();
         let mut rng = rand::thread_rng();
 
-        for _ in 0..(WIDTH * HEIGHT - mine_num) {
+        for _ in 0..(WIDTH * HEIGHT - mine_num as usize) {
             let idx = rng.gen_range(0..mine_fields.len());
             self.data[mine_fields[idx]].ctype = CellType::Empty;
             mine_fields.remove(idx);
