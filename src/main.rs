@@ -39,12 +39,12 @@ fn get_args() -> ArgMatches {
         .arg(
             arg!(-w --width <width> "Width")
                 .required(false)
-                .default_value("8")
+                .default_value("10")
             )
         .arg(
             arg!(-h --height <height> "Height")
                 .required(false)
-                .default_value("8")
+                .default_value("10")
             )
         .arg(
             arg!(-m --mines <mines> "Number of mines")

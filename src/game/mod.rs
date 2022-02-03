@@ -98,43 +98,27 @@ impl<'a> Game<'a> {
                             continue;
                         }
                     };
-
-                    if !self.map.idx(x, y).hidden {
-                        continue;
-                    }
-
-                    self.map.flag_cell(x, y);
-
-                    if self.map.idx(x, y).flag {
-                        self.mines_left -= 1;
-                    } else {
-                        self.mines_left += 1;
-                    }
+                    
+                    self.flag_cell(x, y);
                 },
                 "r" => {
-                    let mut to_reveal = Vec::new();
-                    for x in 0..self.config.width {
-                        for y in 0..self.config.height {
-                            let cell = self.map.idx(x, y);
-
-                            if cell.hidden {
-                                continue;
-                            }
-
-                            if let CellType::Number(_) = cell.ctype {
-                                to_reveal.push((x, y));
-                            }
-                        }
-                    }
-
-                    for (x, y) in to_reveal {
-                        if self.guess_cell(x, y) {
-                            break;
-                        }
-                    }
+                    self.reveal_possible();
                 },
                 _ => {
-                    let (x, y) = match self.get_pos_from_str(&input) {
+                    lazy_static! {
+                        // fxy is shortcut for f xy
+                        static ref FLAG_RE: Regex = Regex::new("^f[a-z][0-9]+$").unwrap();
+                    }
+
+                    let mut flag = false;
+                    let mut to_parse = input.as_str();
+                    
+                    if FLAG_RE.is_match(&input) {
+                        flag = true;
+                        to_parse = &input[1..];
+                    }
+
+                    let (x, y) = match self.get_pos_from_str(&to_parse) {
                         Ok(pos) => pos,
                         Err(msg) => {
                             self.event = Some(EventType::Error(msg));
@@ -142,18 +126,30 @@ impl<'a> Game<'a> {
                         }
                     };
 
-                    if self.map.idx(x, y).flag {
-                        self.event = Some(EventType::Error(format!("there is a flag on {}", &input)));
+                    if flag {
+                        self.flag_cell(x, y);
                         continue;
                     }
 
-                    self.guess_cell(x, y);
+                    // if there is an event to handle continue
+                    if self.guess_cell(x, y, &input) {
+                        continue;
+                    }
                 }
             }
         }
     }
+    
+    // guess cell
+    // returns:
+    //  - true - if there is event to process
+    //  - false - otherwise
+    fn guess_cell(&mut self, x: usize, y: usize, input: &str) -> bool {
+        if self.map.idx(x, y).flag {
+            self.event = Some(EventType::Error(format!("there is a flag on {}", &input)));
+            return true;
+        }
 
-    fn guess_cell(&mut self, x: usize, y: usize) -> bool {
         match self.map.reveal(x, y) {
             RevealResult::Normal => {},
             RevealResult::Mine => {
@@ -171,11 +167,51 @@ impl<'a> Game<'a> {
         false
     }
 
+    fn reveal_possible(&mut self) {
+        let mut to_reveal = Vec::new();
+        for x in 0..self.config.width {
+            for y in 0..self.config.height {
+                let cell = self.map.idx(x, y);
+
+                if cell.hidden {
+                    continue;
+                }
+
+                if let CellType::Number(_) = cell.ctype {
+                    to_reveal.push((x, y));
+                }
+            }
+        }
+
+        for (x, y) in to_reveal {
+            // no need for input because cell is never a flag
+            if self.guess_cell(x, y, "") {
+                break;
+            }
+        }
+    }
+
+    fn flag_cell(&mut self, x: usize, y: usize) {
+        if !self.map.idx(x, y).hidden {
+            return;
+        }
+
+        self.map.flag_cell(x, y);
+
+        if self.map.idx(x, y).flag {
+            self.mines_left -= 1;
+        } else {
+            self.mines_left += 1;
+        }
+    }
+
+    // get xy from input. A10 -> x=0 y=10
     fn get_pos_from_str(&self, input: &str) -> Result<(usize, usize), String> {
         lazy_static! {
             static ref RE: Regex = Regex::new("^[a-z][0-9]+$").unwrap();
         }
 
+        // validate coordinates
         if !RE.is_match(&input) {
             return Err("bad coordinates".to_string());
         }
