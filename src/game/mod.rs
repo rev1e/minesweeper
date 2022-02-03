@@ -18,7 +18,7 @@ use colored::Colorize;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::{display::{Display, LETTERS}, HEIGHT, WIDTH, game::cell::RevealResult, MINES};
+use crate::{display::{Display, LETTERS}, game::cell::RevealResult, config::Config};
 
 use self::cell::{Cells, CellType};
 
@@ -30,21 +30,23 @@ enum EventType {
     Error(String),
 }
 
-pub struct Game {
-    map: Cells,
-    display: Display,
+pub struct Game<'a> {
+    map: Cells<'a>,
+    display: Display<'a>,
     event: Option<EventType>,
     mines_left: i32,
+    config: &'a Config,
 }
 
-impl Game {
-    pub fn new() -> Self {
-        assert!(MINES <= i32::MAX as u32);
+impl<'a> Game<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        assert!(config.mines <= i32::MAX as u32);
         Self {
-            display: Display::new(),
-            map: Cells::new(MINES),
+            display: Display::new(&config),
+            map: Cells::new(&config),
             event: None,
-            mines_left: MINES as i32,
+            mines_left: config.mines as i32,
+            config,
         }
     }
 
@@ -89,7 +91,7 @@ impl Game {
                         continue;
                     }
 
-                    let (x, y) = match get_pos_from_str(pos_str.unwrap()) {
+                    let (x, y) = match self.get_pos_from_str(pos_str.unwrap()) {
                         Ok(pos) => pos,
                         Err(msg) => {
                             self.event = Some(EventType::Error(msg));
@@ -111,8 +113,8 @@ impl Game {
                 },
                 "r" => {
                     let mut to_reveal = Vec::new();
-                    for x in 0..WIDTH {
-                        for y in 0..HEIGHT {
+                    for x in 0..self.config.width {
+                        for y in 0..self.config.height {
                             let cell = self.map.idx(x, y);
 
                             if cell.hidden {
@@ -132,7 +134,7 @@ impl Game {
                     }
                 },
                 _ => {
-                    let (x, y) = match get_pos_from_str(&input) {
+                    let (x, y) = match self.get_pos_from_str(&input) {
                         Ok(pos) => pos,
                         Err(msg) => {
                             self.event = Some(EventType::Error(msg));
@@ -168,27 +170,28 @@ impl Game {
 
         false
     }
+
+    fn get_pos_from_str(&self, input: &str) -> Result<(usize, usize), String> {
+        lazy_static! {
+            static ref RE: Regex = Regex::new("^[a-z][0-9]+$").unwrap();
+        }
+
+        if !RE.is_match(&input) {
+            return Err("bad coordinates".to_string());
+        }
+
+        let x = input.chars().next().unwrap();
+        let x = LETTERS.to_lowercase().chars().position(|e| e == x).unwrap();
+        let y = input[1..].parse().unwrap();
+
+        if x > self.config.width - 1 {
+            return Err("x is too big".to_string());
+        }
+        if y > self.config.height - 1 {
+            return Err("y is too big".to_string());
+        }
+
+        Ok((x, y))
+    }
 }
 
-fn get_pos_from_str(input: &str) -> Result<(usize, usize), String> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new("^[a-z][0-9]+$").unwrap();
-    }
-
-    if !RE.is_match(&input) {
-        return Err("bad coordinates".to_string());
-    }
-
-    let x = input.chars().next().unwrap();
-    let x = LETTERS.to_lowercase().chars().position(|e| e == x).unwrap();
-    let y = input[1..].parse().unwrap();
-
-    if x > WIDTH - 1 {
-        return Err("x is too big".to_string());
-    }
-    if y > HEIGHT - 1 {
-        return Err("y is too big".to_string());
-    }
-
-    Ok((x, y))
-}

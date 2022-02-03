@@ -14,21 +14,42 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use crate::game::Game;
-
-mod display;
-mod game;
-
-
-pub const WIDTH: usize = 26;
-pub const HEIGHT: usize = 26;
-pub const MINES: u32 = 100;
-
+use clap::{App, arg, ArgMatches};
+use minesweeper::{config::Config, game::Game};
 
 fn main() {
-    println!("Hello, world!");
+    let config = Config::new(get_args());
 
-    let mut game = Game::new();
+    if !config.is_ok() {
+        eprintln!("{}", config.unwrap_err());
+        return;
+    }
+    let config = config.unwrap();
+
+    let mut game = Game::new(&config);
 
     game.run()
+}
+
+fn get_args() -> ArgMatches {
+    App::new("minesweeper")
+        .author("rev1e")
+        .about("tui minesweeper game implemented in rust")
+        .version("0.1.0")
+        .arg(
+            arg!(-w --width <width> "Width")
+                .required(false)
+                .default_value("8")
+            )
+        .arg(
+            arg!(-h --height <height> "Height")
+                .required(false)
+                .default_value("8")
+            )
+        .arg(
+            arg!(-m --mines <mines> "Number of mines")
+                .required(false)
+                .default_value("10")
+            )
+        .get_matches()
 }

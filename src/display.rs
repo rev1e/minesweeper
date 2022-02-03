@@ -18,15 +18,21 @@ use std::io::{self, Write};
 
 use colored::Colorize;
 
-use crate::{WIDTH, HEIGHT, game::cell::{Cells, CellType}};
+use crate::{game::cell::{Cells, CellType}, config::Config};
 
 pub const LETTERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // handles i/o
-pub struct Display {}
+pub struct Display<'a> {
+    config: &'a Config
+}
 
-impl Display {
-    pub fn new() -> Self { Self {  } }
+impl<'a> Display<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        Self {
+            config
+        }
+    }
 
     pub fn clear_screen(&self) {
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
@@ -48,20 +54,20 @@ impl Display {
 
     pub fn render_board(&self, map: &Cells) {
         print!("     ");
-        for x in 0..(WIDTH - 1) {
+        for x in 0..(self.config.width - 1) {
             print!("{} ", LETTERS.chars().nth(x).unwrap());
         }
-        println!("{}", LETTERS.chars().nth(WIDTH - 1).unwrap());
+        println!("{}", LETTERS.chars().nth(self.config.width - 1).unwrap());
 
         print!("     ");
-        for _ in 0..(WIDTH * 2) {
+        for _ in 0..(self.config.width * 2) {
             print!("-");
         }
         print!("\n");
 
-        for y in 0..HEIGHT {
+        for y in 0..self.config.height {
             print!("{:02} | ", y);
-            for x in 0..WIDTH {
+            for x in 0..self.config.width {
                 let cell = map.idx(x, y);
                 
                 if cell.flag {
@@ -92,15 +98,15 @@ impl Display {
         }
 
         print!("     ");
-        for _ in 0..(WIDTH * 2) {
+        for _ in 0..(self.config.width * 2) {
             print!("-");
         }
         print!("\n");
 
         print!("     ");
-        for x in 0..(WIDTH - 1) {
+        for x in 0..(self.config.width - 1) {
             print!("{} ", LETTERS.chars().nth(x).unwrap());
         }
-        println!("{}", LETTERS.chars().nth(WIDTH - 1).unwrap());
+        println!("{}", LETTERS.chars().nth(self.config.width - 1).unwrap());
     }
 }
