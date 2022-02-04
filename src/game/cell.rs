@@ -18,6 +18,8 @@ use rand::Rng;
 
 use crate::config::Config;
 
+use super::position::Position;
+
 pub enum RevealResult {
     Mine,
     Win,
@@ -40,7 +42,11 @@ pub struct Cell {
 
 impl Cell {
     fn new() -> Self {
-        Self { hidden: true, flag: false, ctype: CellType::Mine }
+        Self {
+            hidden: true,
+            flag: false,
+            ctype: CellType::Mine
+        }
     }
 }
 
@@ -71,6 +77,7 @@ impl<'a> Cells<'a> {
             (0..(self.config.width * self.config.height)).collect();
         let mut rng = rand::thread_rng();
 
+        // all cells are mines by default
         for _ in 0..(self.config.width * self.config.height - self.config.mines as usize) {
             let idx = rng.gen_range(0..mine_fields.len());
             self.data[mine_fields[idx]].ctype = CellType::Empty;
@@ -83,56 +90,62 @@ impl<'a> Cells<'a> {
     fn generate_numbers(&mut self) {
         for x in 0..self.config.width {
             for y in 0..self.config.height {
-                if self.idx(x, y).ctype != CellType::Empty {
+                if self.idx(Position::new(x, y)).ctype != CellType::Empty {
                     continue;
                 }
 
-                let mut mines_count = 0;
+                let mut mine_count = 0;
 
-                if x > 0 && self.idx(x-1, y).ctype == CellType::Mine {
-                    mines_count += 1;
+                macro_rules! idx_is_mine {
+                    ($a:expr,$b:expr) =>
+                        (self.idx(Position::new($a, $b)).ctype == CellType::Mine)
                 }
-                if x < self.config.width - 1 && self.idx(x+1, y).ctype == CellType::Mine {
-                    mines_count += 1;
+
+                if x > 0 && idx_is_mine!(x-1, y) {
+                    mine_count += 1;
                 }
-                if y > 0 && self.idx(x, y-1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if x < self.config.width - 1 && idx_is_mine!(x+1, y) {
+                    mine_count += 1;
                 }
-                if y < self.config.height - 1 && self.idx(x, y+1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if y > 0 && idx_is_mine!(x, y-1) {
+                    mine_count += 1;
                 }
-                if y > 0 && x > 0 && self.idx(x-1, y-1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if y < self.config.height - 1 && idx_is_mine!(x, y+1) {
+                    mine_count += 1;
                 }
-                if y > 0 && x < self.config.width - 1 && self.idx(x+1, y-1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if y > 0 && x > 0 && idx_is_mine!(x-1, y-1) {
+                    mine_count += 1;
                 }
-                if y < self.config.height - 1 && x > 0 && self.idx(x-1, y+1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if y > 0 && x < self.config.width - 1 && idx_is_mine!(x+1, y-1) {
+                    mine_count += 1;
                 }
-                if y < self.config.height - 1 && x < self.config.width - 1 && self.idx(x+1, y+1).ctype == CellType::Mine {
-                    mines_count += 1;
+                if y < self.config.height - 1 && x > 0 && idx_is_mine!(x-1, y+1) {
+                    mine_count += 1;
+                }
+                if y < self.config.height - 1 && x < self.config.width - 1 && idx_is_mine!(x+1, y+1) {
+                    mine_count += 1;
                 }
                 
-                if mines_count > 0 {
-                    self.idx_mut(x, y).ctype = CellType::Number(mines_count);
+                // change cell number to number of mines
+                if mine_count > 0 {
+                    self.idx_mut(Position::new(x, y)).ctype = CellType::Number(mine_count);
                 }
             }
         }
     }
 
-    pub fn reveal(&mut self, x: usize, y: usize) -> RevealResult {
-        let cell = self.idx(x, y);
+    pub fn reveal(&mut self, pos: Position) -> RevealResult {
+        let cell = self.idx(pos);
 
         if !cell.hidden {
-            return self.reveal_visible(x, y);
+            return self.reveal_visible(pos);
         }
 
         if cell.ctype == CellType::Mine {
             return RevealResult::Mine;
         }
 
-        self.reveal_r(x, y);
+        self.reveal_r(pos);
 
         if self.check_win() {
             RevealResult::Win
@@ -141,8 +154,9 @@ impl<'a> Cells<'a> {
         }
     }
 
-    fn reveal_r(&mut self, x: usize, y: usize) {
-        let cell = self.idx(x, y);
+    // recursive reveal
+    fn reveal_r(&mut self, pos: Position) {
+        let cell = self.idx(pos);
 
         if !cell.hidden {
             return;
@@ -156,40 +170,49 @@ impl<'a> Cells<'a> {
             return;
         }
 
-        self.idx_mut(x, y).hidden = false;
+        self.idx_mut(pos).hidden = false;
 
         if let CellType::Number(_) = cell.ctype {
             return;
         }
 
+        let x = pos.x;
+        let y = pos.y;
+
+        macro_rules! reveal_r_idx {
+            ($a:expr, $b:expr) => {
+                self.reveal_r(Position::new($a, $b));
+            }
+        }
+
         if x > 0 {
-            self.reveal_r(x-1, y);
+            reveal_r_idx!(x-1, y);
         }
         if x < self.config.width - 1 {
-            self.reveal_r(x+1, y);
+            reveal_r_idx!(x+1, y);
         }
         if y > 0 {
-            self.reveal_r(x, y-1);
+            reveal_r_idx!(x, y-1);
         }
         if y < self.config.height - 1 {
-            self.reveal_r(x, y+1);
+            reveal_r_idx!(x, y+1);
         }
         if x > 0 && y > 0 {
-            self.reveal_r(x-1, y-1);
+            reveal_r_idx!(x-1, y-1);
         }
         if x < self.config.width - 1 && y > 0 {
-            self.reveal_r(x+1, y-1);
+            reveal_r_idx!(x+1, y-1);
         }
         if x < self.config.width - 1 && y < self.config.height - 1 {
-            self.reveal_r(x+1, y+1);
+            reveal_r_idx!(x+1, y+1);
         }
         if x > 0 && y < self.config.height - 1 {
-            self.reveal_r(x-1, y+1);
+            reveal_r_idx!(x-1, y+1);
         }
     }
 
-    fn reveal_visible(&mut self, x: usize, y: usize) -> RevealResult {
-        if !self.reveal_visible_r(x, y) {
+    fn reveal_visible(&mut self, pos: Position) -> RevealResult {
+        if !self.reveal_visible_r(pos) {
             return RevealResult::Mine;
         }
         
@@ -200,8 +223,10 @@ impl<'a> Cells<'a> {
         }
     }
 
-    fn reveal_visible_r(&mut self, x: usize, y: usize) -> bool {
-        let cell = self.idx_mut(x, y);
+    // recursive visible reveal
+    // returns false if mine was revealed
+    fn reveal_visible_r(&mut self, pos: Position) -> bool {
+        let cell = self.idx_mut(pos);
 
         if cell.flag {
             return true;
@@ -213,30 +238,38 @@ impl<'a> Cells<'a> {
 
         cell.hidden = false;
 
+        macro_rules! idx_flag {
+            ($a:expr,$b:expr) => (self.idx(Position::new($a, $b)).flag)
+        }
+
+        let x = pos.x;
+        let y = pos.y;
+
+        // count flags
         if let CellType::Number(num) = cell.ctype {
             let mut flag_count = 0;
-            if x > 0 && self.idx(x-1, y).flag {
+            if x > 0 && idx_flag!(x-1, y) {
                 flag_count += 1;
             }
-            if x < self.config.width - 1 && self.idx(x+1, y).flag {
+            if x < self.config.width - 1 && idx_flag!(x+1, y) {
                 flag_count += 1;
             }
-            if y > 0 && self.idx(x, y-1).flag {
+            if y > 0 && idx_flag!(x, y-1) {
                 flag_count += 1;
             }
-            if y < self.config.height - 1 && self.idx(x, y+1).flag {
+            if y < self.config.height - 1 && idx_flag!(x, y+1) {
                 flag_count += 1;
             }
-            if x > 0 && y > 0 && self.idx(x-1, y-1).flag {
+            if x > 0 && y > 0 && idx_flag!(x-1, y-1) {
                 flag_count += 1;
             }
-            if x < self.config.width - 1 && y > 0 && self.idx(x+1, y-1).flag {
+            if x < self.config.width - 1 && y > 0 && idx_flag!(x+1, y-1) {
                 flag_count += 1;
             }
-            if x < self.config.width - 1 && y < self.config.height - 1 && self.idx(x+1, y+1).flag {
+            if x < self.config.width - 1 && y < self.config.height - 1 && idx_flag!(x+1, y+1) {
                 flag_count += 1;
             }
-            if x > 0 && y < self.config.height - 1 && self.idx(x-1, y+1).flag {
+            if x > 0 && y < self.config.height - 1 && idx_flag!(x-1, y+1) {
                 flag_count += 1;
             }
 
@@ -244,30 +277,40 @@ impl<'a> Cells<'a> {
                 return true;
             }
         }
+
+        macro_rules! reveal_r_idx {
+            ($a:expr, $b:expr) => {
+                if !self.reveal_visible_r(Position::new($a,$b)){return false;};
+            }
+        }
+
+        macro_rules! idx_hidden {
+            ($a:expr, $b:expr) => (self.idx(Position::new($a, $b)).hidden)
+        }
         
-        if x > 0 && self.idx(x-1, y).hidden {
-            if !self.reveal_visible_r(x-1, y) { return false; };
+        if x > 0 && idx_hidden!(x-1, y) {
+            reveal_r_idx!(x-1, y);
         }
-        if x < self.config.width - 1 && self.idx(x+1, y).hidden {
-            if !self.reveal_visible_r(x+1, y) { return false; };
+        if x < self.config.width - 1 && idx_hidden!(x+1, y) {
+            reveal_r_idx!(x+1, y);
         }
-        if y > 0 && self.idx(x, y-1).hidden {
-            if !self.reveal_visible_r(x, y-1) { return false; };
+        if y > 0 && idx_hidden!(x, y-1) {
+            reveal_r_idx!(x, y-1);
         }
-        if y < self.config.height - 1 && self.idx(x, y+1).hidden {
-            if !self.reveal_visible_r(x, y+1) { return false; };
+        if y < self.config.height - 1 && idx_hidden!(x, y+1) {
+            reveal_r_idx!(x, y+1);
         }
-        if x > 0 && y > 0 && self.idx(x-1, y-1).hidden {
-            if !self.reveal_visible_r(x-1, y-1) { return false; };
+        if x > 0 && y > 0 && idx_hidden!(x-1, y-1) {
+            reveal_r_idx!(x-1, y-1);
         }
-        if x < self.config.width - 1 && y > 0 && self.idx(x+1, y-1).hidden {
-            if !self.reveal_visible_r(x+1, y-1) { return false; };
+        if x < self.config.width - 1 && y > 0 && idx_hidden!(x+1, y-1) {
+            reveal_r_idx!(x+1, y-1);
         }
-        if x < self.config.width - 1 && y < self.config.height - 1 && self.idx(x+1, y+1).hidden {
-            if !self.reveal_visible_r(x+1, y+1) { return false; };
+        if x < self.config.width - 1 && y < self.config.height - 1 && idx_hidden!(x+1, y+1) {
+            reveal_r_idx!(x+1, y+1);
         }
-        if x > 0 && y < self.config.height - 1 && self.idx(x-1, y+1).hidden {
-            if !self.reveal_visible_r(x-1, y+1) { return false; };
+        if x > 0 && y < self.config.height - 1 && idx_hidden!(x-1, y+1) {
+            reveal_r_idx!(x-1, y+1);
         }
 
         true
@@ -281,32 +324,33 @@ impl<'a> Cells<'a> {
         }
         true
     }
+
     pub fn reveal_all(&mut self) {
         for x in 0..self.config.width {
             for y in 0..self.config.height {
-                let cell = self.idx_mut(x, y);
+                let cell = self.idx_mut(Position::new(x, y));
                 cell.hidden = false;
                 cell.flag = false;
             }
         }
     }
 
-    pub fn idx(&self, x: usize, y: usize) -> Cell {
-        assert!(x < self.config.width);
-        assert!(y < self.config.height);
+    pub fn idx(&self, pos: Position) -> Cell {
+        assert!(pos.x < self.config.width);
+        assert!(pos.y < self.config.height);
 
-        self.data[y * self.config.width + x]
+        self.data[pos.y * self.config.width + pos.x]
     }
 
-    pub fn idx_mut(&mut self, x: usize, y: usize) -> &mut Cell {
-        assert!(x < self.config.width);
-        assert!(y < self.config.height);
+    pub fn idx_mut(&mut self, pos: Position) -> &mut Cell {
+        assert!(pos.x < self.config.width);
+        assert!(pos.y < self.config.height);
 
-        &mut self.data[y * self.config.width + x]
+        &mut self.data[pos.y * self.config.width + pos.x]
     }
 
-    pub fn flag_cell(&mut self, x: usize, y: usize) {
-        let cell = self.idx_mut(x, y);
+    pub fn flag_cell(&mut self, pos: Position) {
+        let cell = self.idx_mut(pos);
 
         if !cell.hidden {
             return;

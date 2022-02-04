@@ -20,9 +20,10 @@ use regex::Regex;
 
 use crate::{display::{Display, LETTERS}, game::cell::RevealResult, config::Config};
 
-use self::cell::{Cells, CellType};
+use self::{cell::{Cells, CellType}, position::Position};
 
 pub mod cell;
+pub mod position;
 
 enum EventType {
     GameOver,
@@ -91,7 +92,7 @@ impl<'a> Game<'a> {
                         continue;
                     }
 
-                    let (x, y) = match self.get_pos_from_str(pos_str.unwrap()) {
+                    let pos = match self.get_pos_from_str(pos_str.unwrap()) {
                         Ok(pos) => pos,
                         Err(msg) => {
                             self.event = Some(EventType::Error(msg));
@@ -99,7 +100,7 @@ impl<'a> Game<'a> {
                         }
                     };
                     
-                    self.flag_cell(x, y);
+                    self.flag_cell(pos);
                 },
                 "r" => {
                     self.reveal_possible();
@@ -113,12 +114,13 @@ impl<'a> Game<'a> {
                     let mut flag = false;
                     let mut to_parse = input.as_str();
                     
+                    // check flag shortcut
                     if FLAG_RE.is_match(&input) {
                         flag = true;
                         to_parse = &input[1..];
                     }
 
-                    let (x, y) = match self.get_pos_from_str(&to_parse) {
+                    let pos = match self.get_pos_from_str(&to_parse) {
                         Ok(pos) => pos,
                         Err(msg) => {
                             self.event = Some(EventType::Error(msg));
@@ -127,12 +129,12 @@ impl<'a> Game<'a> {
                     };
 
                     if flag {
-                        self.flag_cell(x, y);
+                        self.flag_cell(pos);
                         continue;
                     }
 
                     // if there is an event to handle continue
-                    if self.guess_cell(x, y, &input) {
+                    if self.guess_cell(pos, &input) {
                         continue;
                     }
                 }
@@ -144,13 +146,13 @@ impl<'a> Game<'a> {
     // returns:
     //  - true - if there is event to process
     //  - false - otherwise
-    fn guess_cell(&mut self, x: usize, y: usize, input: &str) -> bool {
-        if self.map.idx(x, y).flag {
+    fn guess_cell(&mut self, pos: Position, input: &str) -> bool {
+        if self.map.idx(pos).flag {
             self.event = Some(EventType::Error(format!("there is a flag on {}", &input)));
             return true;
         }
 
-        match self.map.reveal(x, y) {
+        match self.map.reveal(pos) {
             RevealResult::Normal => {},
             RevealResult::Mine => {
                 self.map.reveal_all();
@@ -171,34 +173,36 @@ impl<'a> Game<'a> {
         let mut to_reveal = Vec::new();
         for x in 0..self.config.width {
             for y in 0..self.config.height {
-                let cell = self.map.idx(x, y);
+                let pos = Position::new(x, y);
+                let cell = self.map.idx(pos);
 
                 if cell.hidden {
                     continue;
                 }
 
                 if let CellType::Number(_) = cell.ctype {
-                    to_reveal.push((x, y));
+                    to_reveal.push(pos);
                 }
             }
         }
 
-        for (x, y) in to_reveal {
+        for pos in to_reveal {
             // no need for input because cell is never a flag
-            if self.guess_cell(x, y, "") {
+            if self.guess_cell(pos, "") {
                 break;
             }
         }
     }
 
-    fn flag_cell(&mut self, x: usize, y: usize) {
-        if !self.map.idx(x, y).hidden {
+    fn flag_cell(&mut self, pos: Position) {
+        if !self.map.idx(pos).hidden {
+            self.event = Some(EventType::Error("cell is not hidden".to_string()));
             return;
         }
 
-        self.map.flag_cell(x, y);
+        self.map.flag_cell(pos);
 
-        if self.map.idx(x, y).flag {
+        if self.map.idx(pos).flag {
             self.mines_left -= 1;
         } else {
             self.mines_left += 1;
@@ -206,7 +210,7 @@ impl<'a> Game<'a> {
     }
 
     // get xy from input. A10 -> x=0 y=10
-    fn get_pos_from_str(&self, input: &str) -> Result<(usize, usize), String> {
+    fn get_pos_from_str(&self, input: &str) -> Result<Position, String> {
         lazy_static! {
             static ref RE: Regex = Regex::new("^[a-z][0-9]+$").unwrap();
         }
@@ -227,7 +231,7 @@ impl<'a> Game<'a> {
             return Err("y is too big".to_string());
         }
 
-        Ok((x, y))
+        Ok(Position::new(x, y))
     }
 }
 

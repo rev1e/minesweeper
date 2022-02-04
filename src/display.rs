@@ -18,7 +18,7 @@ use std::io::{self, Write};
 
 use colored::Colorize;
 
-use crate::{game::cell::{Cells, CellType}, config::Config};
+use crate::{game::{cell::{Cells, CellType}, position::Position}, config::Config};
 
 pub const LETTERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -68,7 +68,7 @@ impl<'a> Display<'a> {
         for y in 0..self.config.height {
             print!("{:02} | ", y);
             for x in 0..self.config.width {
-                let cell = map.idx(x, y);
+                let cell = map.idx(Position::new(x, y));
                 
                 if cell.flag {
                     print!("{} ", "!".red());
