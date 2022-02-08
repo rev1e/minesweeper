@@ -105,6 +105,9 @@ impl<'a> Game<'a> {
                 "r" => {
                     self.reveal_possible();
                 },
+                "help" | "?" | "h" => {
+                    self.display.print_help();
+                },
                 _ => {
                     lazy_static! {
                         // fxy is shortcut for f xy

@@ -109,4 +109,17 @@ impl<'a> Display<'a> {
         }
         println!("{}", LETTERS.chars().nth(self.config.width - 1).unwrap());
     }
+
+
+    pub fn print_help(&self) {
+        println!("Help:");
+        println!("<pos> -> guess");
+        println!("f <pos>, flag <pos>, f<pos> -> flag position");
+        println!("r -> reveal all possible");
+        println!("quit, exit, q -> exit game");
+        println!("help, h, ? -> print this message");
+        print!("Press enter to continue..");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut String::new()).unwrap();
+    }
 }
